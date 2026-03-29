@@ -249,7 +249,7 @@
       // Ensure zones fit vertically too
       const maxZoneH = Math.floor((gridHeight - (ROWS - 1) * GAP) / ROWS);
       ZONE_SIZE = Math.min(ZONE_SIZE, maxZoneH);
-      SHAPE_SIZE = Math.round(ZONE_SIZE * 0.5);
+      SHAPE_SIZE = Math.round(ZONE_SIZE * 0.4);
       const gridWidth = COLS * ZONE_SIZE + (COLS - 1) * GAP;
       GRID_OFFSET_X = Math.round((BOARD_SIZE - gridWidth) / 2);
     }
