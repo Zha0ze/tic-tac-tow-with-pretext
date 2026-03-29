@@ -27,9 +27,13 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 48px 0;
+      padding: 48px 36px;
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
+    }
+
+    @media (max-width: 600px) {
+      body { padding: 32px 24px; }
     }
 
     h1 {
@@ -71,12 +75,19 @@
       background: #4E4E4E1A;
     }
 
+    #board-wrapper {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+
     #board {
       position: relative;
       cursor: pointer;
       background: #FFFFFF;
       border-radius: 24px;
       overflow: hidden;
+      transform-origin: top center;
     }
 
     #board.loading #text-layer,
@@ -86,6 +97,10 @@
 
     #text-layer {
       transition: opacity 0.4s ease;
+    }
+
+    h1, #subtitle, #restart {
+      max-width: 100%;
     }
 
     #status {
@@ -147,6 +162,7 @@
   <h1>TIC-TAC-TOE</h1>
   <p id="subtitle">Tic-tac-toe is one of the oldest games still played today. Ancient Egyptians carved similar grids into roofing tiles around 1300 BC. Romans played a version called Terni Lapilli with just three pebbles each — no infinite marks, just sliding pieces across stone.</p>
   <button id="restart">Restart</button>
+  <div id="board-wrapper">
   <div id="board">
     <div id="status">-- X's turn --</div>
     <div id="text-layer"></div>
@@ -159,6 +175,7 @@
       </defs>
     </svg>
     <div id="zones-layer"></div>
+  </div>
   </div>
 
   <script type="module">
@@ -752,6 +769,20 @@
       textLayer.innerHTML = '';
       layoutAllText();
     });
+
+    // --- Responsive Board Scaling ---
+    const boardWrapper = document.getElementById('board-wrapper');
+
+    function updateBoardScale() {
+      const margin = window.innerWidth <= 600 ? 24 : 36;
+      const available = window.innerWidth - margin * 2;
+      const scale = Math.min(1, available / BOARD_WIDTH);
+      boardEl.style.transform = `scale(${scale})`;
+      boardWrapper.style.height = `${BOARD_HEIGHT * scale}px`;
+    }
+
+    window.addEventListener('resize', updateBoardScale);
+    updateBoardScale();
 
     // --- Start ---
     init();
