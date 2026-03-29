@@ -58,7 +58,8 @@
       letter-spacing: -0.01em;
       color: #3F3F3F;
       text-align: center;
-      width: 684px;
+      max-width: 684px;
+      width: 100%;
       margin-bottom: 16px;
     }
 
@@ -94,7 +95,6 @@
       background: #FFFFFF;
       border-radius: 24px;
       overflow: hidden;
-      transform-origin: top center;
     }
 
     #board.loading #text-layer,
@@ -191,17 +191,19 @@
       layoutNextLine
     } from 'https://esm.sh/@chenglou/pretext@0.0.3';
 
-    // --- Configuration (matching Paper design) ---
-    const ZONE_SIZE = 224;
-    const GAP = 6;
+    // --- Configuration ---
     const COLS = 3;
     const ROWS = 3;
     const FONT_SIZE = 12;
     const LINE_HEIGHT = Math.round(12 * 1.45); // 17px
     const FONT = `${FONT_SIZE}px "Instrument Sans", system-ui, sans-serif`;
-    const SHAPE_SIZE = 140; // Size of X/O shape
-    const SHAPE_PADDING = 10; // White space around shape
-    const BOARD_PADDING = 54; // Padding inside the board (from Paper: text starts at x=54)
+    const SHAPE_PADDING = 10;
+    const MAX_BOARD = 800;
+    const MIN_BOARD = 320;
+    const BOARD_PADDING_RATIO = 54 / 800; // padding as ratio of board size
+    const GAP_RATIO = 6 / 800;
+    const SHAPE_RATIO = 140 / 800; // shape size as ratio of board
+    const TURN_INDICATOR_RATIO = 60 / 800;
 
     // --- Tuned Animation Values ---
     const ANIM_X_STROKE1_DUR = 170;
@@ -209,14 +211,25 @@
     const ANIM_X_PAUSE = 70;
     const ANIM_O_DUR = 560;
     const ANIM_O_START_ANGLE = 304;
-    const ANIM_O_CCW = true; // counter-clockwise
+    const ANIM_O_CCW = true;
 
-    const GRID_WIDTH = COLS * ZONE_SIZE + (COLS - 1) * GAP;
-    const GRID_HEIGHT = ROWS * ZONE_SIZE + (ROWS - 1) * GAP;
-    const BOARD_WIDTH = 800;
-    const BOARD_HEIGHT = 800;
-    const GRID_OFFSET_X = (BOARD_WIDTH - GRID_WIDTH) / 2;
-    const GRID_OFFSET_Y = 60; // Space for turn indicator at top
+    // --- Dynamic dimensions (recalculated on resize) ---
+    let BOARD_SIZE, ZONE_SIZE, GAP, SHAPE_SIZE, GRID_OFFSET_X, GRID_OFFSET_Y, BOARD_WIDTH, BOARD_HEIGHT;
+
+    function calcDimensions() {
+      const margin = window.innerWidth <= 600 ? 24 : 36;
+      const available = window.innerWidth - margin * 2;
+      BOARD_SIZE = Math.max(MIN_BOARD, Math.min(MAX_BOARD, available));
+      BOARD_WIDTH = BOARD_SIZE;
+      BOARD_HEIGHT = BOARD_SIZE;
+      GAP = Math.round(BOARD_SIZE * GAP_RATIO);
+      const gridSpace = BOARD_SIZE - 2 * Math.round(BOARD_SIZE * BOARD_PADDING_RATIO);
+      ZONE_SIZE = Math.floor((gridSpace - (COLS - 1) * GAP) / COLS);
+      SHAPE_SIZE = Math.round(BOARD_SIZE * SHAPE_RATIO);
+      const gridWidth = COLS * ZONE_SIZE + (COLS - 1) * GAP;
+      GRID_OFFSET_X = Math.round((BOARD_SIZE - gridWidth) / 2);
+      GRID_OFFSET_Y = Math.round(BOARD_SIZE * TURN_INDICATOR_RATIO);
+    }
 
     const WIKI_TEXT = `Tic-tac-toe (American English), noughts and crosses (Commonwealth English), or Xs and Os (Canadian or Irish English) is a paper-and-pencil game for two players who take turns marking spaces in a three-by-three grid, one with Xs and the other with Os. A player wins by marking all three spaces of a row, column, or diagonal, traditionally drawing a line through those three marks. It is a solved game, with a forced draw assuming best play from both players. In American English, the game is known as "tic-tac-toe" and may also be spelled "tick-tack-toe," "tick-tat-toe," or "tit-tat-toe." In Commonwealth English (British, South African, Indian, Australian, and New Zealand English), the game is known as "noughts and crosses" or "naughts and crosses." This name derives from the shape of the marks, X and O, where "nought" refers to zero and "cross" refers to the X shape. Sometimes tic-tac-toe and three men's morris are confused, though they differ in gameplay mechanics. Tic-tac-toe is played on a three-by-three grid by two players who alternately place marks X and O in one of nine spaces. Players soon discover that best play from both parties leads to a draw. Hence, tic-tac-toe is often played by young children who may not have discovered optimal strategy. Because of its simplicity, it serves as a pedagogical tool for teaching good sportsmanship and artificial intelligence concepts involving game trees. It is straightforward to write a computer program to play tic-tac-toe perfectly or enumerate the 765 essentially different positions or the 26,830 possible games up to rotations and reflections. If played optimally by both players, the game always ends in a draw, making tic-tac-toe a futile game. The game can be generalized to an m,n,k-game, where two players alternate placing stones on an m-by-n board to get k in a row. Tic-tac-toe is the 3,3,3-game. Games played on three-in-a-row boards can be traced back to ancient Egypt, where such game boards have been found on roofing tiles dating from around 1300 BC. An early variation was played in the Roman Empire around the first century BC, called terni lapilli (three pebbles at a time). Each player had only three pieces and had to move them around empty spaces to keep playing. Game grid markings have been found chalked throughout Rome. Another closely related ancient game is three men's morris, also played on a simple grid requiring three pieces in a row to finish, and Picaria, a game of the Puebloans. The first print reference to "noughts and crosses" appeared in 1858 in Notes and Queries. The first print reference to "tick-tack-toe" occurred in 1884, though it initially referred to a different children's game involving slate and numbers. "Tic-tac-toe" may derive from "tick-tack," an old version of backgammon first described in 1558. The US renaming of "noughts and crosses" to "tic-tac-toe" occurred in the twentieth century. In 1952, OXO (or Noughts and Crosses), developed by British computer scientist Sandy Douglas for the EDSAC computer at the University of Cambridge, became one of the first known video games. The computer player could play perfect games of tic-tac-toe against human opponents. In 1975, tic-tac-toe was used by MIT students to demonstrate the computational power of Tinkertoy elements. The Tinkertoy computer, made of almost only Tinkertoys, plays tic-tac-toe perfectly and is displayed at the Computer History Museum. Considering only board state and accounting for symmetries through rotations and reflections, there are 138 terminal board positions. When X makes the first move, 91 distinct positions are won by X, 44 distinct positions are won by O, and 3 distinct positions are drawn. A player can play perfectly by choosing moves from this priority list: first, win by placing a third mark to get three in a row; second, block the opponent if they have two in a row; third, create a fork with two ways to win; fourth, block the opponent's fork; fifth, mark the center; sixth, play opposite the opponent's corner; seventh, play in an empty corner; eighth, play in a middle square on any side. The first player, X, has three strategically distinct opening positions: corner, edge, or center. Playing corner gives the opponent the fewest squares that must be played to avoid losing. The second player, O, must respond carefully to avoid forced loss. O must answer corner openings with center, and center openings with corner. Many board games share the element of trying to be first to get n-in-a-row, including three men's morris, nine men's morris, pente, gomoku, Qubic, Connect Four, Quarto, Gobblet, Order and Chaos, Toss Across, and Mojo. Other variations include 3-dimensional tic-tac-toe played on a 3x3x3 board, misere tic-tac-toe where a player wins if the opponent gets n in a row, wild tic-tac-toe where players choose to place either X or O on each move, and quantum tic-tac-toe which allows players to place quantum superposition of numbers on the board. In 1983, the science-fiction film WarGames described global thermonuclear war as similar to tic-tac-toe: if all sides engage full-scale arsenals with effective strategies, no side actually wins. The game has appeared in various game shows including Hollywood Squares, where nine celebrities filled tic-tac-toe grid cells and players placed symbols by correctly agreeing or disagreeing with celebrity answers, and Tic-Tac-Dough, where players placed symbols by answering category questions.`;
 
@@ -236,8 +249,11 @@
     const restartBtn = document.getElementById('restart');
 
     // --- Initialize Board Size ---
-    boardEl.style.width = `${BOARD_WIDTH}px`;
-    boardEl.style.height = `${BOARD_HEIGHT}px`;
+    function updateBoardSize() {
+      calcDimensions();
+      boardEl.style.width = `${BOARD_SIZE}px`;
+      boardEl.style.height = `${BOARD_SIZE}px`;
+    }
 
     // --- Prepare Text with Pretext ---
     let prepared;
@@ -245,7 +261,7 @@
     async function init() {
       boardEl.classList.add('loading');
 
-      // Wait for fonts via CSS @import — poll until Instrument Sans is available
+      // Wait for fonts
       let fontReady = false;
       for (let i = 0; i < 30; i++) {
         await document.fonts.ready;
@@ -258,11 +274,29 @@
 
       await loadSVGs();
       prepared = prepareWithSegments(WIKI_TEXT, FONT);
+
+      updateBoardSize();
       createZones();
       layoutAllText();
 
-      // Fade in the text smoothly
       requestAnimationFrame(() => boardEl.classList.remove('loading'));
+    }
+
+    function rebuildLayout() {
+      if (!prepared) return;
+      updateBoardSize();
+      createZones();
+      // Remove shape containers and re-place them at new positions
+      Object.entries(shapeContainers).forEach(([idx, container]) => {
+        const zone = getZoneRect(parseInt(idx));
+        container.style.left = `${zone.x}px`;
+        container.style.top = `${zone.y}px`;
+        container.style.width = `${zone.width}px`;
+        container.style.height = `${zone.height}px`;
+        const svg = container.querySelector('svg');
+        if (svg) svg.style.width = `${SHAPE_SIZE}px`;
+      });
+      layoutAllText();
     }
 
     // --- Create Click Zones ---
@@ -777,32 +811,16 @@
       layoutAllText();
     });
 
-    // --- Responsive Board Scaling ---
-    const boardWrapper = document.getElementById('board-wrapper');
-
-    function updateBoardScale() {
-      const margin = window.innerWidth <= 600 ? 24 : 36;
-      const available = window.innerWidth - margin * 2;
-      const scale = Math.min(1, available / BOARD_WIDTH);
-
-      if (scale < 0.55) {
-        // Too small to scale — let it overflow and scroll horizontally
-        boardEl.style.transform = 'none';
-        boardWrapper.style.height = 'auto';
-        boardWrapper.style.overflowX = 'auto';
-        boardWrapper.style.justifyContent = 'flex-start';
-      } else {
-        boardEl.style.transform = `scale(${scale})`;
-        boardWrapper.style.height = `${BOARD_HEIGHT * scale}px`;
-        boardWrapper.style.overflowX = 'visible';
-        boardWrapper.style.justifyContent = 'center';
-      }
-    }
-
-    window.addEventListener('resize', updateBoardScale);
-    updateBoardScale();
+    // --- Responsive: rebuild layout on resize ---
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(rebuildLayout, 150);
+    });
 
     // --- Start ---
+    calcDimensions();
+    updateBoardSize();
     init();
   </script>
 </body>
