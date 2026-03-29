@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tic-Tac-Toe — Pretext Text Flow</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500&family=Instrument+Serif&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #EAEAEA;
+      color: #3F3F3F;
+      font-family: 'Instrument Sans', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 0;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1 {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-size: 48px;
+      font-weight: 400;
+      color: #3F3F3F;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+
+    #subtitle {
+      font-size: 14px;
+      line-height: 1.45;
+      letter-spacing: -0.01em;
+      color: #3F3F3F;
+      text-align: center;
+      width: 684px;
+      margin-bottom: 16px;
+    }
+
+    #restart {
+      padding: 8px 24px;
+      border: 1px solid #807F7F;
+      border-radius: 16px;
+      background: transparent;
+      font-family: 'Instrument Sans', system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.45;
+      letter-spacing: -0.01em;
+      font-weight: 500;
+      color: #4E4E4E;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 24px;
+    }
+
+    #restart:hover {
+      background: #4E4E4E1A;
+    }
+
+    #board {
+      position: relative;
+      cursor: pointer;
+      background: #FFFFFF;
+      border-radius: 24px;
+      overflow: hidden;
+    }
+
+    #board.loading #text-layer,
+    #board.loading #zones-layer {
+      opacity: 0;
+    }
+
+    #text-layer {
+      transition: opacity 0.4s ease;
+    }
+
+    #status {
+      font-family: 'Instrument Sans', system-ui, sans-serif;
+      font-size: 12px;
+      color: #3F3F3F;
+      text-align: center;
+      padding: 24px 0 8px;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      z-index: 3;
+    }
+
+    /* Text lines rendered by Pretext */
+    .text-line {
+      position: absolute;
+      font-family: 'Instrument Sans', system-ui, sans-serif;
+      color: #3F3F3F;
+      white-space: nowrap;
+      pointer-events: none;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    /* SVG overlay for shapes */
+    #svg-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    /* Click zones (invisible) */
+    .zone {
+      position: absolute;
+      cursor: pointer;
+    }
+
+    .zone:hover {
+      background: rgba(0, 0, 0, 0.02);
+      border-radius: 8px;
+    }
+
+    /* SVG pencil filter */
+    .pencil-stroke {
+      fill: none;
+      stroke: #222;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  </style>
+</head>
+<body>
+  <h1>TIC-TAC-TOE</h1>
+  <p id="subtitle">Tic-tac-toe is one of the oldest games still played today. Ancient Egyptians carved similar grids into roofing tiles around 1300 BC. Romans played a version called Terni Lapilli with just three pebbles each — no infinite marks, just sliding pieces across stone.</p>
+  <button id="restart">Restart</button>
+  <div id="board">
+    <div id="status">-- X's turn --</div>
+    <div id="text-layer"></div>
+    <svg id="svg-layer" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="pencil" x="-3%" y="-3%" width="106%" height="106%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="4" result="noise"/>
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.5" xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
+      </defs>
+    </svg>
+    <div id="zones-layer"></div>
+  </div>
+
+  <script type="module">
+    import {
+      prepareWithSegments,
+      layoutNextLine
+    } from 'https://esm.sh/@chenglou/pretext@0.0.3';
+
+    // --- Configuration (matching Paper design) ---
+    const ZONE_SIZE = 224;
+    const GAP = 6;
+    const COLS = 3;
+    const ROWS = 3;
+    const FONT_SIZE = 12;
+    const LINE_HEIGHT = Math.round(12 * 1.45); // 17px
+    const FONT = `${FONT_SIZE}px "Instrument Sans", system-ui, sans-serif`;
+    const SHAPE_SIZE = 140; // Size of X/O shape
+    const SHAPE_PADDING = 10; // White space around shape
+    const BOARD_PADDING = 54; // Padding inside the board (from Paper: text starts at x=54)
+
+    // --- Tuned Animation Values ---
+    const ANIM_X_STROKE1_DUR = 170;
+    const ANIM_X_STROKE2_DUR = 340;
+    const ANIM_X_PAUSE = 70;
+    const ANIM_O_DUR = 560;
+    const ANIM_O_START_ANGLE = 304;
+    const ANIM_O_CCW = true; // counter-clockwise
+
+    const GRID_WIDTH = COLS * ZONE_SIZE + (COLS - 1) * GAP;
+    const GRID_HEIGHT = ROWS * ZONE_SIZE + (ROWS - 1) * GAP;
+    const BOARD_WIDTH = 800;
+    const BOARD_HEIGHT = 800;
+    const GRID_OFFSET_X = (BOARD_WIDTH - GRID_WIDTH) / 2;
+    const GRID_OFFSET_Y = 60; // Space for turn indicator at top
+
+    const WIKI_TEXT = `Tic-tac-toe (American English), noughts and crosses (Commonwealth English), or Xs and Os (Canadian or Irish English) is a paper-and-pencil game for two players who take turns marking spaces in a three-by-three grid, one with Xs and the other with Os. A player wins by marking all three spaces of a row, column, or diagonal, traditionally drawing a line through those three marks. It is a solved game, with a forced draw assuming best play from both players. In American English, the game is known as "tic-tac-toe" and may also be spelled "tick-tack-toe," "tick-tat-toe," or "tit-tat-toe." In Commonwealth English (British, South African, Indian, Australian, and New Zealand English), the game is known as "noughts and crosses" or "naughts and crosses." This name derives from the shape of the marks, X and O, where "nought" refers to zero and "cross" refers to the X shape. Sometimes tic-tac-toe and three men's morris are confused, though they differ in gameplay mechanics. Tic-tac-toe is played on a three-by-three grid by two players who alternately place marks X and O in one of nine spaces. Players soon discover that best play from both parties leads to a draw. Hence, tic-tac-toe is often played by young children who may not have discovered optimal strategy. Because of its simplicity, it serves as a pedagogical tool for teaching good sportsmanship and artificial intelligence concepts involving game trees. It is straightforward to write a computer program to play tic-tac-toe perfectly or enumerate the 765 essentially different positions or the 26,830 possible games up to rotations and reflections. If played optimally by both players, the game always ends in a draw, making tic-tac-toe a futile game. The game can be generalized to an m,n,k-game, where two players alternate placing stones on an m-by-n board to get k in a row. Tic-tac-toe is the 3,3,3-game. Games played on three-in-a-row boards can be traced back to ancient Egypt, where such game boards have been found on roofing tiles dating from around 1300 BC. An early variation was played in the Roman Empire around the first century BC, called terni lapilli (three pebbles at a time). Each player had only three pieces and had to move them around empty spaces to keep playing. Game grid markings have been found chalked throughout Rome. Another closely related ancient game is three men's morris, also played on a simple grid requiring three pieces in a row to finish, and Picaria, a game of the Puebloans. The first print reference to "noughts and crosses" appeared in 1858 in Notes and Queries. The first print reference to "tick-tack-toe" occurred in 1884, though it initially referred to a different children's game involving slate and numbers. "Tic-tac-toe" may derive from "tick-tack," an old version of backgammon first described in 1558. The US renaming of "noughts and crosses" to "tic-tac-toe" occurred in the twentieth century. In 1952, OXO (or Noughts and Crosses), developed by British computer scientist Sandy Douglas for the EDSAC computer at the University of Cambridge, became one of the first known video games. The computer player could play perfect games of tic-tac-toe against human opponents. In 1975, tic-tac-toe was used by MIT students to demonstrate the computational power of Tinkertoy elements. The Tinkertoy computer, made of almost only Tinkertoys, plays tic-tac-toe perfectly and is displayed at the Computer History Museum. Considering only board state and accounting for symmetries through rotations and reflections, there are 138 terminal board positions. When X makes the first move, 91 distinct positions are won by X, 44 distinct positions are won by O, and 3 distinct positions are drawn. A player can play perfectly by choosing moves from this priority list: first, win by placing a third mark to get three in a row; second, block the opponent if they have two in a row; third, create a fork with two ways to win; fourth, block the opponent's fork; fifth, mark the center; sixth, play opposite the opponent's corner; seventh, play in an empty corner; eighth, play in a middle square on any side. The first player, X, has three strategically distinct opening positions: corner, edge, or center. Playing corner gives the opponent the fewest squares that must be played to avoid losing. The second player, O, must respond carefully to avoid forced loss. O must answer corner openings with center, and center openings with corner. Many board games share the element of trying to be first to get n-in-a-row, including three men's morris, nine men's morris, pente, gomoku, Qubic, Connect Four, Quarto, Gobblet, Order and Chaos, Toss Across, and Mojo. Other variations include 3-dimensional tic-tac-toe played on a 3x3x3 board, misere tic-tac-toe where a player wins if the opponent gets n in a row, wild tic-tac-toe where players choose to place either X or O on each move, and quantum tic-tac-toe which allows players to place quantum superposition of numbers on the board. In 1983, the science-fiction film WarGames described global thermonuclear war as similar to tic-tac-toe: if all sides engage full-scale arsenals with effective strategies, no side actually wins. The game has appeared in various game shows including Hollywood Squares, where nine celebrities filled tic-tac-toe grid cells and players placed symbols by correctly agreeing or disagreeing with celebrity answers, and Tic-Tac-Dough, where players placed symbols by answering category questions.`;
+
+    // --- Game State ---
+    let board = Array(9).fill(null); // null, 'x', or 'o'
+    let shapeProgress = Array(9).fill(1); // 0-1 animation progress per cell
+    let currentPlayer = 'x';
+    let gameOver = false;
+    let animating = false;
+
+    // --- DOM Elements ---
+    const boardEl = document.getElementById('board');
+    const textLayer = document.getElementById('text-layer');
+    const svgLayer = document.getElementById('svg-layer');
+    const zonesLayer = document.getElementById('zones-layer');
+    const statusEl = document.getElementById('status');
+    const restartBtn = document.getElementById('restart');
+
+    // --- Initialize Board Size ---
+    boardEl.style.width = `${BOARD_WIDTH}px`;
+    boardEl.style.height = `${BOARD_HEIGHT}px`;
+
+    // --- Prepare Text with Pretext ---
+    let prepared;
+
+    async function init() {
+      boardEl.classList.add('loading');
+
+      // Wait for fonts via CSS @import — poll until Instrument Sans is available
+      let fontReady = false;
+      for (let i = 0; i < 30; i++) {
+        await document.fonts.ready;
+        if (document.fonts.check(`${FONT_SIZE}px "Instrument Sans"`)) {
+          fontReady = true;
+          break;
+        }
+        await new Promise(r => setTimeout(r, 100));
+      }
+
+      await loadSVGs();
+      prepared = prepareWithSegments(WIKI_TEXT, FONT);
+      createZones();
+      layoutAllText();
+
+      // Fade in the text smoothly
+      requestAnimationFrame(() => boardEl.classList.remove('loading'));
+    }
+
+    // --- Create Click Zones ---
+    function createZones() {
+      zonesLayer.innerHTML = '';
+      for (let row = 0; row < ROWS; row++) {
+        for (let col = 0; col < COLS; col++) {
+          const zone = document.createElement('div');
+          zone.className = 'zone';
+          zone.style.left = `${GRID_OFFSET_X + col * (ZONE_SIZE + GAP)}px`;
+          zone.style.top = `${GRID_OFFSET_Y + row * (ZONE_SIZE + GAP)}px`;
+          zone.style.width = `${ZONE_SIZE}px`;
+          zone.style.height = `${ZONE_SIZE}px`;
+          const index = row * COLS + col;
+          zone.addEventListener('click', () => onZoneClick(index));
+          zonesLayer.appendChild(zone);
+        }
+      }
+    }
+
+    // --- Get zone position ---
+    function getZoneRect(index) {
+      const row = Math.floor(index / COLS);
+      const col = index % COLS;
+      return {
+        x: GRID_OFFSET_X + col * (ZONE_SIZE + GAP),
+        y: GRID_OFFSET_Y + row * (ZONE_SIZE + GAP),
+        width: ZONE_SIZE,
+        height: ZONE_SIZE
+      };
+    }
+
+    // --- Get shape center within a zone ---
+    function getShapeCenter(index) {
+      const zone = getZoneRect(index);
+      return {
+        cx: zone.x + zone.width / 2,
+        cy: zone.y + zone.height / 2
+      };
+    }
+
+    // --- Get blocked intervals for a shape at a given Y position ---
+    // Returns array of { left, right } intervals that the shape blocks
+    function getShapeBlockedIntervals(index, y) {
+      const type = board[index];
+      if (!type) return [];
+
+      const progress = shapeProgress[index];
+      if (progress <= 0) return [];
+
+      const { cx, cy } = getShapeCenter(index);
+      const pad = SHAPE_PADDING;
+
+      // Scale the shape size by animation progress
+      const scale = progress;
+
+      if (type === 'o') {
+        const r = (SHAPE_SIZE / 2) * 0.85 * scale;
+        const dy = y - cy;
+
+        // Outside circle vertically? No obstruction
+        if (Math.abs(dy) > r + pad) return [];
+
+        // Calculate horizontal extent of circle + padding at this Y
+        const rPad = r + pad;
+        const dx = Math.sqrt(rPad * rPad - dy * dy);
+        return [{ left: cx - dx, right: cx + dx }];
+
+      } else {
+        // X shape: two diagonal strokes
+        const half = (SHAPE_SIZE / 2) * 0.85 * scale;
+        const strokeHalfWidth = (8 + pad) * scale;
+
+        // Outside X vertically? No obstruction
+        if (Math.abs(y - cy) > half + pad) return [];
+
+        const dy = y - cy;
+        const intervals = [];
+
+        // Stroke 1: top-left to bottom-right
+        // At center, stroke_x = cx. As dy increases, stroke_x moves right.
+        const stroke1_x = cx + dy; // linear: maps [-half, half] → [cx-half, cx+half]
+        if (Math.abs(dy) <= half) {
+          intervals.push({
+            left: stroke1_x - strokeHalfWidth,
+            right: stroke1_x + strokeHalfWidth
+          });
+        }
+
+        // Stroke 2: top-right to bottom-left (mirror)
+        const stroke2_x = cx - dy;
+        if (Math.abs(dy) <= half) {
+          intervals.push({
+            left: stroke2_x - strokeHalfWidth,
+            right: stroke2_x + strokeHalfWidth
+          });
+        }
+
+        // Merge overlapping intervals
+        if (intervals.length === 2) {
+          const a = intervals[0], b = intervals[1];
+          if (a.right >= b.left && b.right >= a.left) {
+            // Overlapping — merge into one
+            return [{ left: Math.min(a.left, b.left), right: Math.max(a.right, b.right) }];
+          }
+          // Return sorted left-to-right
+          return intervals.sort((x, y) => x.left - y.left);
+        }
+
+        return intervals;
+      }
+    }
+
+    // --- Carve available width for a text line at a given Y position ---
+    function getAvailableSegments(y, lineHeight, zoneX, zoneWidth) {
+      const lineMidY = y + lineHeight / 2;
+
+      // Start with full width
+      let segments = [{ left: zoneX, right: zoneX + zoneWidth }];
+
+      // Check all placed shapes
+      for (let i = 0; i < 9; i++) {
+        if (!board[i]) continue;
+
+        const blocked = getShapeBlockedIntervals(i, lineMidY);
+
+        for (const block of blocked) {
+          const newSegments = [];
+          for (const seg of segments) {
+            if (block.right <= seg.left || block.left >= seg.right) {
+              // No overlap
+              newSegments.push(seg);
+            } else {
+              // Carve around blocked region
+              if (block.left > seg.left) {
+                newSegments.push({ left: seg.left, right: block.left });
+              }
+              if (block.right < seg.right) {
+                newSegments.push({ left: block.right, right: seg.right });
+              }
+            }
+          }
+          segments = newSegments;
+        }
+      }
+
+      // Filter out segments too narrow for text
+      return segments.filter(s => (s.right - s.left) >= FONT_SIZE * 2);
+    }
+
+    // --- Layout all text across zones ---
+    function layoutAllText() {
+      if (!prepared) return;
+
+      const lines = [];
+      let cursor = { segmentIndex: 0, graphemeIndex: 0 };
+
+      // Process each zone in reading order
+      for (let zoneIdx = 0; zoneIdx < 9; zoneIdx++) {
+        const zone = getZoneRect(zoneIdx);
+        let y = zone.y;
+
+        while (y + LINE_HEIGHT <= zone.y + zone.height) {
+          // Get available horizontal segments at this Y
+          const segments = getAvailableSegments(y, LINE_HEIGHT, zone.x, zone.width);
+
+          if (segments.length === 0) {
+            // Entire line blocked by shape, skip
+            y += LINE_HEIGHT;
+            continue;
+          }
+
+          // Layout text into available segments (use widest or leftmost)
+          for (const seg of segments) {
+            const width = seg.right - seg.left;
+            const line = layoutNextLine(prepared, cursor, width);
+            if (!line) break;
+
+            lines.push({
+              text: line.text,
+              x: seg.left,
+              y: y,
+              width: line.width
+            });
+
+            cursor = line.end;
+          }
+
+          y += LINE_HEIGHT;
+
+          // Check if we've run out of text
+          const testLine = layoutNextLine(prepared, cursor, ZONE_SIZE);
+          if (!testLine) break;
+          // We peeked, but we need to "un-peek" — re-layout from cursor on next iteration
+          // Actually layoutNextLine is pure, so cursor hasn't changed. We're fine.
+        }
+      }
+
+      renderTextLines(lines);
+    }
+
+    // --- Render text lines — instant re-typeset, no transitions ---
+    // Like the Pretext demo: lines stay in place, text content changes rapidly
+    function renderTextLines(lines) {
+      textLayer.innerHTML = '';
+      for (const line of lines) {
+        const div = document.createElement('div');
+        div.className = 'text-line';
+        div.textContent = line.text;
+        div.style.left = `${line.x}px`;
+        div.style.top = `${line.y}px`;
+        div.style.font = FONT;
+        div.style.lineHeight = `${LINE_HEIGHT}px`;
+        textLayer.appendChild(div);
+      }
+    }
+
+    // --- Cubic Bezier Easing Engine ---
+    // Tuned curve: cubic-bezier(0.39, 1.12, 0.68, 1.00)
+    const BZ = { p1x: 0.39, p1y: 1.12, p2x: 0.68, p2y: 1.00 };
+
+    function cubicBezier(t, p0, p1, p2, p3) {
+      const u = 1 - t;
+      return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
+    }
+
+    function solveBezierX(x) {
+      let t = x;
+      for (let i = 0; i < 8; i++) {
+        const currentX = cubicBezier(t, 0, BZ.p1x, BZ.p2x, 1);
+        const dx = 3 * (1 - t) * (1 - t) * BZ.p1x + 6 * (1 - t) * t * (BZ.p2x - BZ.p1x) + 3 * t * t * (1 - BZ.p2x);
+        if (Math.abs(dx) < 1e-6) break;
+        t -= (currentX - x) / dx;
+        t = Math.max(0, Math.min(1, t));
+      }
+      return t;
+    }
+
+    function ease(x) {
+      if (x <= 0) return 0;
+      if (x >= 1) return 1;
+      return cubicBezier(solveBezierX(x), 0, BZ.p1y, BZ.p2y, 1);
+    }
+
+    // --- Load SVG files ---
+    let xSvgText = '';
+    let oSvgText = '';
+
+    async function loadSVGs() {
+      const [xResp, oResp] = await Promise.all([fetch('X.svg'), fetch('O.svg')]);
+      xSvgText = await xResp.text();
+      oSvgText = await oResp.text();
+    }
+
+    // --- Clip-path helpers ---
+    function getClipInset(direction, progress) {
+      const inv = (1 - progress) * 100;
+      switch (direction) {
+        case 'tl-br': return `inset(0 ${inv}% ${inv}% 0)`;
+        case 'tr-bl': return `inset(0 0 ${inv}% ${inv}%)`;
+        default:      return `inset(0 ${inv}% ${inv}% 0)`;
+      }
+    }
+
+    // --- Place and animate shape ---
+    // Each shape gets its own container div positioned in the zone
+    const shapeContainers = {};
+
+    async function animateShapeWithReflow(index, type) {
+      const zone = getZoneRect(index);
+
+      // Create a container for this shape
+      const container = document.createElement('div');
+      container.style.position = 'absolute';
+      container.style.left = `${zone.x}px`;
+      container.style.top = `${zone.y}px`;
+      container.style.width = `${zone.width}px`;
+      container.style.height = `${zone.height}px`;
+      container.style.display = 'flex';
+      container.style.alignItems = 'center';
+      container.style.justifyContent = 'center';
+      container.style.pointerEvents = 'none';
+      container.style.zIndex = '2';
+
+      // Inject the SVG
+      container.innerHTML = type === 'x' ? xSvgText : oSvgText;
+      const svg = container.querySelector('svg');
+      svg.style.width = `${SHAPE_SIZE}px`;
+      svg.style.height = 'auto';
+
+      boardEl.appendChild(container);
+      shapeContainers[index] = container;
+
+      // Progressive reflow: grow shape blocking area during animation
+      shapeProgress[index] = 0;
+      const totalDur = type === 'x'
+        ? ANIM_X_STROKE1_DUR + ANIM_X_PAUSE + ANIM_X_STROKE2_DUR
+        : ANIM_O_DUR;
+
+      // Run text reflow on each frame during animation
+      const reflowStart = performance.now();
+      let reflowRunning = true;
+
+      function reflowTick() {
+        if (!reflowRunning) return;
+        const elapsed = performance.now() - reflowStart;
+        const t = Math.min(elapsed / totalDur, 1);
+        shapeProgress[index] = ease(t);
+        layoutAllText();
+        if (t < 1) requestAnimationFrame(reflowTick);
+      }
+      requestAnimationFrame(reflowTick);
+
+      // Run visual animation in parallel
+      if (type === 'x') {
+        await animateX(container, svg);
+      } else {
+        await animateO(container);
+      }
+
+      // Ensure final state
+      reflowRunning = false;
+      shapeProgress[index] = 1;
+      layoutAllText();
+    }
+
+    // --- X Animation: inset clip per stroke ---
+    function animateX(container, svg) {
+      return new Promise(resolve => {
+        const paths = svg.querySelectorAll('path');
+        paths.forEach(p => p.style.clipPath = getClipInset('tl-br', 0));
+
+        const start1 = performance.now();
+        function tickStroke1(now) {
+          const t = Math.min((now - start1) / ANIM_X_STROKE1_DUR, 1);
+          const e = ease(t);
+          paths[0].style.clipPath = getClipInset('tl-br', e);
+
+          if (t < 1) {
+            requestAnimationFrame(tickStroke1);
+          } else {
+            setTimeout(() => {
+              const start2 = performance.now();
+              function tickStroke2(now) {
+                const t = Math.min((now - start2) / ANIM_X_STROKE2_DUR, 1);
+                const e = ease(t);
+                if (paths[1]) paths[1].style.clipPath = getClipInset('tr-bl', e);
+                if (t < 1) requestAnimationFrame(tickStroke2);
+                else resolve();
+              }
+              requestAnimationFrame(tickStroke2);
+            }, ANIM_X_PAUSE);
+          }
+        }
+        requestAnimationFrame(tickStroke1);
+      });
+    }
+
+    // --- O Animation: conic-gradient mask on container ---
+    function animateO(container) {
+      return new Promise(resolve => {
+        const startTime = performance.now();
+
+        function tick(now) {
+          const t = Math.min((now - startTime) / ANIM_O_DUR, 1);
+          const e = ease(t);
+          const sweep = e * 360;
+
+          let mask;
+          if (ANIM_O_CCW) {
+            const fromAngle = ANIM_O_START_ANGLE - sweep;
+            mask = `conic-gradient(from ${fromAngle}deg at 50% 50%, black ${sweep}deg, transparent ${sweep}deg)`;
+          } else {
+            mask = `conic-gradient(from ${ANIM_O_START_ANGLE}deg at 50% 50%, black ${sweep}deg, transparent ${sweep}deg)`;
+          }
+
+          container.style.maskImage = mask;
+          container.style.webkitMaskImage = mask;
+
+          if (t < 1) {
+            requestAnimationFrame(tick);
+          } else {
+            container.style.maskImage = 'none';
+            container.style.webkitMaskImage = 'none';
+            resolve();
+          }
+        }
+        requestAnimationFrame(tick);
+      });
+    }
+
+    // --- Win Line (simple stroke-dashoffset, kept as SVG path) ---
+    function createWinLinePath(start, end) {
+      const mx = (start.x + end.x) / 2 + (Math.random() - 0.5) * 4;
+      const my = (start.y + end.y) / 2 + (Math.random() - 0.5) * 4;
+      return `M ${start.x},${start.y} Q ${mx},${my} ${end.x},${end.y}`;
+    }
+
+    function animateWinPath(pathEl, duration) {
+      return new Promise(resolve => {
+        const length = pathEl.getTotalLength();
+        pathEl.style.strokeDasharray = length;
+        pathEl.style.strokeDashoffset = length;
+        const startTime = performance.now();
+        function tick(now) {
+          const t = Math.min((now - startTime) / duration, 1);
+          const e = ease(t);
+          pathEl.style.strokeDashoffset = length * (1 - e);
+          if (t < 1) requestAnimationFrame(tick);
+          else { pathEl.style.strokeDasharray = ''; pathEl.style.strokeDashoffset = ''; resolve(); }
+        }
+        requestAnimationFrame(tick);
+      });
+    }
+
+    // --- Win Detection ---
+    const WIN_LINES = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
+      [0, 3, 6], [1, 4, 7], [2, 5, 8], // cols
+      [0, 4, 8], [2, 4, 6]             // diags
+    ];
+
+    function checkWin() {
+      for (const line of WIN_LINES) {
+        const [a, b, c] = line;
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+          return { winner: board[a], line };
+        }
+      }
+      if (board.every(cell => cell !== null)) {
+        return { winner: 'draw', line: null };
+      }
+      return null;
+    }
+
+    // --- Draw Win Line ---
+    async function drawWinLine(line) {
+      const startZone = getZoneRect(line[0]);
+      const endZone = getZoneRect(line[2]);
+
+      const start = { x: startZone.x + startZone.width / 2, y: startZone.y + startZone.height / 2 };
+      const end = { x: endZone.x + endZone.width / 2, y: endZone.y + endZone.height / 2 };
+
+      const d = createWinLinePath(start, end);
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+      path.setAttribute('class', 'pencil-stroke');
+      path.setAttribute('stroke-width', '3');
+      path.setAttribute('filter', 'url(#pencil)');
+      path.setAttribute('opacity', '0.6');
+      svgLayer.appendChild(path);
+
+      await animateWinPath(path, 400);
+    }
+
+    // --- Handle Zone Click ---
+    async function onZoneClick(index) {
+      if (gameOver || animating || board[index]) return;
+
+      animating = true;
+      board[index] = currentPlayer;
+
+      // Animate the shape drawing and reflow text progressively
+      // First, set up progressive reflow during animation
+      const zone = getZoneRect(index);
+      const cx = zone.x + zone.width / 2;
+      const cy = zone.y + zone.height / 2;
+
+      // Animate shape AND progressively reflow text on each frame
+      await animateShapeWithReflow(index, currentPlayer);
+
+      // Check win
+      const result = checkWin();
+      if (result) {
+        gameOver = true;
+        if (result.winner === 'draw') {
+          statusEl.textContent = "-- Draw! --";
+        } else {
+          statusEl.textContent = `-- ${result.winner.toUpperCase()} wins! --`;
+          if (result.line) {
+            await drawWinLine(result.line);
+          }
+        }
+      } else {
+        currentPlayer = currentPlayer === 'x' ? 'o' : 'x';
+        statusEl.textContent = `-- ${currentPlayer.toUpperCase()}'s turn --`;
+      }
+
+      animating = false;
+    }
+
+    // --- Restart ---
+    restartBtn.addEventListener('click', () => {
+      board = Array(9).fill(null);
+      shapeProgress = Array(9).fill(1);
+      currentPlayer = 'x';
+      gameOver = false;
+      animating = false;
+      statusEl.textContent = "-- X's turn --";
+
+      // Clear SVG win line (keep defs)
+      const defs = svgLayer.querySelector('defs');
+      svgLayer.innerHTML = '';
+      svgLayer.appendChild(defs);
+
+      // Remove shape containers
+      Object.values(shapeContainers).forEach(c => c.remove());
+      Object.keys(shapeContainers).forEach(k => delete shapeContainers[k]);
+
+      // Clear and re-layout text
+      textLayer.innerHTML = '';
+      layoutAllText();
+    });
+
+    // --- Start ---
+    init();
+  </script>
+</body>
+</html>
