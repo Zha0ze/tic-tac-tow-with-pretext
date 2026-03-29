@@ -781,8 +781,8 @@
       const len = Math.sqrt(dx * dx + dy * dy);
       const nx = dx / len;
       const ny = dy / len;
-      // Extend from center to the edge of the cell (half zone size)
-      const pad = ZONE_SIZE / 2;
+      // Extend from center to the edge of the shape (half shape size)
+      const pad = SHAPE_SIZE / 2;
       const start = { x: cx1 - nx * pad, y: cy1 - ny * pad };
       const end = { x: cx2 + nx * pad, y: cy2 + ny * pad };
 
