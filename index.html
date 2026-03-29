@@ -238,8 +238,12 @@
 
       GAP = Math.round(BOARD_SIZE * GAP_RATIO);
       const boardPad = Math.round(BOARD_SIZE * BOARD_PADDING_RATIO);
-      // Status line takes 16px text + padding above and below
-      GRID_OFFSET_Y = Math.max(44, Math.round(BOARD_SIZE * TURN_INDICATOR_RATIO));
+      // Status line: 16px text height + gap below it
+      // On mobile, keep minimum 12px between status and cells
+      const statusHeight = 16; // text height
+      const statusTopPad = Math.round(BOARD_SIZE * 0.03); // breathing room above
+      const statusGap = window.innerWidth <= MOBILE_BREAKPOINT ? 12 : Math.round(BOARD_SIZE * 0.02);
+      GRID_OFFSET_Y = statusTopPad + statusHeight + statusGap;
       const gridSpace = BOARD_SIZE - 2 * boardPad;
       const gridHeight = BOARD_SIZE - GRID_OFFSET_Y - boardPad;
       ZONE_SIZE = Math.floor((gridSpace - (COLS - 1) * GAP) / COLS);
