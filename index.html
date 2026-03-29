@@ -111,8 +111,10 @@
 
     #status {
       font-family: 'Instrument Sans', system-ui, sans-serif;
-      font-size: 12px;
+      font-size: 14px;
+      font-weight: 500;
       color: #3F3F3F;
+      line-height: 18px;
       text-align: center;
       padding: 24px 0 8px;
       position: absolute;
@@ -170,7 +172,7 @@
   <button id="restart">Restart</button>
   <div id="board-wrapper">
   <div id="board">
-    <div id="status">-- X's turn --</div>
+    <div id="status">→ X's turn ←</div>
     <div id="text-layer"></div>
     <svg id="svg-layer" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -820,16 +822,16 @@
       if (result) {
         gameOver = true;
         if (result.winner === 'draw') {
-          statusEl.textContent = "-- Draw! --";
+          statusEl.textContent = "→ Draw! ←";
         } else {
-          statusEl.textContent = `-- ${result.winner.toUpperCase()} wins! --`;
+          statusEl.textContent = `→ ${result.winner.toUpperCase()} wins! ←`;
           if (result.line) {
             await drawWinLine(result.line);
           }
         }
       } else {
         currentPlayer = currentPlayer === 'x' ? 'o' : 'x';
-        statusEl.textContent = `-- ${currentPlayer.toUpperCase()}'s turn --`;
+        statusEl.textContent = `→ ${currentPlayer.toUpperCase()}'s turn ←`;
       }
 
       animating = false;
@@ -842,7 +844,7 @@
       currentPlayer = 'x';
       gameOver = false;
       animating = false;
-      statusEl.textContent = "-- X's turn --";
+      statusEl.textContent = "→ X's turn ←";
 
       // Clear SVG win line (keep defs)
       const defs = svgLayer.querySelector('defs');
