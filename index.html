@@ -618,6 +618,8 @@
       const svg = container.querySelector('svg');
       svg.style.width = `${SHAPE_SIZE}px`;
       svg.style.height = 'auto';
+      // Override SVG fill color
+      svg.querySelectorAll('path').forEach(p => p.setAttribute('fill', '#2E2E2E'));
 
       boardEl.appendChild(container);
       shapeContainers[index] = container;
