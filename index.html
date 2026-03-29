@@ -34,6 +34,13 @@
 
     @media (max-width: 600px) {
       body { padding: 32px 24px; }
+      #board { border-radius: 16px; }
+    }
+
+    @media (max-width: 400px) {
+      body { padding: 24px 0; }
+      #board { border-radius: 0; }
+      #board-wrapper { padding: 0; }
     }
 
     h1 {
@@ -777,8 +784,19 @@
       const margin = window.innerWidth <= 600 ? 24 : 36;
       const available = window.innerWidth - margin * 2;
       const scale = Math.min(1, available / BOARD_WIDTH);
-      boardEl.style.transform = `scale(${scale})`;
-      boardWrapper.style.height = `${BOARD_HEIGHT * scale}px`;
+
+      if (scale < 0.55) {
+        // Too small to scale — let it overflow and scroll horizontally
+        boardEl.style.transform = 'none';
+        boardWrapper.style.height = 'auto';
+        boardWrapper.style.overflowX = 'auto';
+        boardWrapper.style.justifyContent = 'flex-start';
+      } else {
+        boardEl.style.transform = `scale(${scale})`;
+        boardWrapper.style.height = `${BOARD_HEIGHT * scale}px`;
+        boardWrapper.style.overflowX = 'visible';
+        boardWrapper.style.justifyContent = 'center';
+      }
     }
 
     window.addEventListener('resize', updateBoardScale);
