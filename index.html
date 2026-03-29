@@ -771,7 +771,7 @@
       const startZone = getZoneRect(line[0]);
       const endZone = getZoneRect(line[2]);
 
-      // Extend line beyond cell centers to the edges of the board
+      // Line starts/ends at the edges of the outer cells
       const cx1 = startZone.x + startZone.width / 2;
       const cy1 = startZone.y + startZone.height / 2;
       const cx2 = endZone.x + endZone.width / 2;
@@ -779,9 +779,10 @@
       const dx = cx2 - cx1;
       const dy = cy2 - cy1;
       const len = Math.sqrt(dx * dx + dy * dy);
-      const pad = ZONE_SIZE * 0.6; // extend past centers by this much
       const nx = dx / len;
       const ny = dy / len;
+      // Extend from center to the edge of the cell (half zone size)
+      const pad = ZONE_SIZE / 2;
       const start = { x: cx1 - nx * pad, y: cy1 - ny * pad };
       const end = { x: cx2 + nx * pad, y: cy2 + ny * pad };
 
@@ -789,7 +790,7 @@
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('d', d);
       path.setAttribute('fill', 'none');
-      path.setAttribute('stroke', '#181919');
+      path.setAttribute('stroke', '#2E2E2E');
       path.setAttribute('stroke-width', '3');
       path.setAttribute('stroke-linecap', 'round');
       path.setAttribute('vector-effect', 'non-scaling-stroke');
