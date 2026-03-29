@@ -277,16 +277,9 @@
       boardEl.style.width = `${BOARD_SIZE}px`;
       boardEl.style.height = `${BOARD_SIZE}px`;
 
-      // Subtitle width: matches cell grid, grows toward board width above 900px
+      // Subtitle width: always matches cell grid width
       const gridWidth = COLS * ZONE_SIZE + (COLS - 1) * GAP;
-      const subtitle = document.getElementById('subtitle');
-      if (window.innerWidth >= 900) {
-        // Lerp from grid width to board width between 900-1200px
-        const t = Math.min(1, (window.innerWidth - 900) / 300);
-        subtitle.style.width = `${gridWidth + t * (BOARD_SIZE - gridWidth)}px`;
-      } else {
-        subtitle.style.width = `${gridWidth}px`;
-      }
+      document.getElementById('subtitle').style.width = `${gridWidth}px`;
     }
 
     // --- Prepare Text with Pretext ---
