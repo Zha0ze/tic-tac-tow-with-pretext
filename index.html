@@ -203,7 +203,7 @@
     <div id="zones-layer"></div>
   </div>
   </div>
-  <p id="credit">Made by <a href="https://www.linkedin.com/in/tetianamoiseienko/" target="_blank" rel="noopener">Taiyang</a></p>
+  <p id="credit">Built with <a href="https://github.com/chenglou/pretext" target="_blank" rel="noopener">Pretext</a> · Designed by <a href="https://www.linkedin.com/in/tetianamoiseienko/" target="_blank" rel="noopener">Taiyang</a></p>
 
   <script type="module">
     import {
@@ -506,7 +506,9 @@
       let cursor = { segmentIndex: 0, graphemeIndex: 0 };
 
       // Process each zone in reading order
-      for (let zoneIdx = 0; zoneIdx < 9; zoneIdx++) {
+      const ZONE_ORDER = [0, 3, 6, 1, 4, 7, 2, 5, 8]; // top→bottom, left→right (column-major)
+      for (let i = 0; i < 9; i++) {
+        const zoneIdx = ZONE_ORDER[i];
         const zone = getZoneRect(zoneIdx);
         let y = zone.y;
 
